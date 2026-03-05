@@ -5,6 +5,7 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 import { filesize } from 'filesize'
 import dayjs from 'dayjs'
 import { Video } from '@prisma/client'
+import {video} from '@types/video'
 
 
 dayjs.extend(relativeTime)
