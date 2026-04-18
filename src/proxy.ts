@@ -1,41 +1,37 @@
-import { auth, clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-const isPublicRoute = createRouteMatcher(['/', '/sign-in', '/sign-up', '/home']);
-
-const isPublicApiRoute = createRouteMatcher([
-    "/api/videos"
-])
+// 🔐 Only auth pages are public
+const isAuthRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+]);
 
 export default clerkMiddleware((auth, req) => {
-    const {userId} = auth();
-    const currentUrl = new URL(req.url)
-    const isHomePage = currentUrl.pathname === '/home';
-    const isApiRequest = currentUrl.pathname.startsWith('/api');
+  const { userId } = auth();
+  const url = new URL(req.url);
+  const isApiRoute = url.pathname.startsWith("/api");
 
-    if (userId && isPublicRoute(req) && !isHomePage) {
-        return NextResponse.redirect(new URL('/home', req.url));
+  // ✅ If user is logged in → block auth pages
+  if (userId && isAuthRoute(req)) {
+    return NextResponse.redirect(new URL("/home", req.url));
+  }
+
+  // ✅ If NOT logged in → protect everything except auth + public APIs
+  if (!userId) {
+    if (!isAuthRoute(req) && !isApiRoute) {
+      return NextResponse.redirect(new URL("/sign-in", req.url));
     }
-    // not logged in
-    if(!userId) {
-        //if user not logged in and tried to access a protected route
-        if (!isPublicRoute(req) && !isPublicApiRoute(req)) {
-        return NextResponse.redirect(new URL('/sign-in', req.url));
-    }
-    // if the request id for a protected API nd the user is not logged in
-    if(isApiRequest && !isPublicApiRoute(req)) {
-        return NextResponse.redirect(new URL('/sign-in', req.url));
-    }
-    }
-    return NextResponse.next();
-    
-})
+  }
+
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for API routes
-    '/(api|trpc)(.*)',
+    // Skip Next.js internals + static files
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // Always run on API routes
+    "/(api|trpc)(.*)",
   ],
 };
